@@ -18,10 +18,13 @@ import (
 	ptv1 "github.com/Azure/application-gateway-kubernetes-ingress/pkg/apis/azureingressprohibitedtarget/v1"
 )
 
+// NameToTarget is a helper type.
 type NameToTarget map[string]Target
 
+// ListenersByName is a helper type.
 type ListenersByName map[string]*n.ApplicationGatewayHTTPListener
 
+// URLPathMapByName is a helper type.
 type URLPathMapByName map[string]n.ApplicationGatewayURLPathMap
 
 // Target uniquely identifies a subset of App Gateway configuration, which AGIC will manage or be prohibited from managing.
