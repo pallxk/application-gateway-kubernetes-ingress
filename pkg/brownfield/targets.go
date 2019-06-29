@@ -35,6 +35,7 @@ type Target struct {
 	Path     *string
 }
 
+
 // IsIn figures out whether a given Target objects in a list of Target objects.
 func (t Target) IsIn(targetList *[]Target) bool {
 	for _, otherTarget := range *targetList {
