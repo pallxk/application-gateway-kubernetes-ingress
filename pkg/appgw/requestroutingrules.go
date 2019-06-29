@@ -21,6 +21,9 @@ import (
 func (c *appGwConfigBuilder) RequestRoutingRules(cbCtx *ConfigBuilderContext) error {
 	requestRoutingRules, pathMaps := c.getRules(cbCtx)
 
+	if cbCtx.EnvVariables.EnableBrownfieldDeployment == "true" {
+		// TODO(draychev): implement
+	}
 	sort.Sort(sorter.ByRequestRoutingRuleName(requestRoutingRules))
 	c.appGw.RequestRoutingRules = &requestRoutingRules
 
