@@ -7,7 +7,6 @@ package brownfield
 
 import (
 	"encoding/json"
-	"github.com/golang/glog"
 	"reflect"
 	"strings"
 
@@ -17,7 +16,6 @@ import (
 	mtv1 "github.com/Azure/application-gateway-kubernetes-ingress/pkg/apis/azureingressmanagedtarget/v1"
 	ptv1 "github.com/Azure/application-gateway-kubernetes-ingress/pkg/apis/azureingressprohibitedtarget/v1"
 )
-
 
 // NameToTarget is a helper type.
 type NameToTarget map[string]Target
@@ -34,7 +32,6 @@ type Target struct {
 	Port     int32
 	Path     *string
 }
-
 
 // IsIn figures out whether a given Target objects in a list of Target objects.
 func (t Target) IsIn(targetList *[]Target) bool {
@@ -57,7 +54,7 @@ type prettyTarget struct {
 }
 
 // MarshalJSON converts the Target object to a JSON byte array.
-func (t Target) MarshalJSON() []byte {
+func (t Target) MarshalJSON() ([]byte, error) {
 	pt := prettyTarget{
 		Hostname: t.Hostname,
 		Port:     t.Port,
@@ -65,11 +62,7 @@ func (t Target) MarshalJSON() []byte {
 	if t.Path != nil {
 		pt.Path = *t.Path
 	}
-	jsonBytes, err := json.Marshal(pt)
-	if err != nil {
-		glog.Error("Failed Marshaling Target object:", err)
-	}
-	return jsonBytes
+	return json.Marshal(pt)
 }
 
 // getProhibitedTargetList returns the list of Targets given a list ProhibitedTarget CRDs.

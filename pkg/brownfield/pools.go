@@ -113,10 +113,12 @@ func GetManagedPools(pools []n.ApplicationGatewayBackendAddressPool, managedTarg
 		for _, pool := range pools {
 			for _, target := range poolToTarget[*pool.Name] {
 				if target.IsIn(blacklist) {
-					glog.V(5).Infof("Target is in blacklist: %s", target.MarshalJSON())
+					t, _ := target.MarshalJSON()
+					glog.V(5).Infof("Target is in blacklist: %s", t)
 					continue
 				}
-				glog.V(5).Infof("Target is implicitly managed: %s", target.MarshalJSON())
+				t, _ := target.MarshalJSON()
+				glog.V(5).Infof("Target is implicitly managed: %s", t)
 				managedPoolsMap[*pool.Name] = pool
 			}
 		}
@@ -127,11 +129,13 @@ func GetManagedPools(pools []n.ApplicationGatewayBackendAddressPool, managedTarg
 	for _, pool := range pools {
 		for _, target := range poolToTarget[*pool.Name] {
 			if !target.IsIn(whitelist) {
-				glog.V(5).Infof("Target is NOT in whitelist: %s", target.MarshalJSON())
+				t, _ := target.MarshalJSON()
+				glog.V(5).Infof("Target is NOT in whitelist: %s", t)
 				continue
 
 			}
-			glog.V(5).Infof("Target is in whitelist: %s", target.MarshalJSON())
+			t, _ := target.MarshalJSON()
+			glog.V(5).Infof("Target is in whitelist: %s", t)
 			managedPoolsMap[*pool.Name] = pool
 		}
 	}
