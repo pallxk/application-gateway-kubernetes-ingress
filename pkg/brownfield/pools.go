@@ -51,7 +51,7 @@ func PruneManagedPools(pools []n.ApplicationGatewayBackendAddressPool, managedTa
 
 // MergePools merges list of lists of backend address pools into a single list, maintaining uniqueness.
 func MergePools(pools ...[]n.ApplicationGatewayBackendAddressPool) []n.ApplicationGatewayBackendAddressPool {
-	uniqPool := make(backendPoolsByName)
+	uniqPool := make(poolsByName)
 	for _, bucket := range pools {
 		for _, pool := range bucket {
 			uniqPool[backendPoolName(*pool.Name)] = pool
@@ -64,7 +64,7 @@ func MergePools(pools ...[]n.ApplicationGatewayBackendAddressPool) []n.Applicati
 	return merged
 }
 
-func indexByName(pools []n.ApplicationGatewayBackendAddressPool) backendPoolsByName {
+func indexByName(pools []n.ApplicationGatewayBackendAddressPool) poolsByName {
 	indexed := make(map[backendPoolName]n.ApplicationGatewayBackendAddressPool)
 	for _, pool := range pools {
 		indexed[backendPoolName(*pool.Name)] = pool
@@ -74,7 +74,7 @@ func indexByName(pools []n.ApplicationGatewayBackendAddressPool) backendPoolsByN
 
 func (c PoolContext) applyBlacklist(pools []n.ApplicationGatewayBackendAddressPool, blacklist targetBlacklist) []n.ApplicationGatewayBackendAddressPool {
 	poolToTarget := c.getPoolToTargets()
-	managedPools := make(backendPoolsByName)
+	managedPools := make(poolsByName)
 
 	for _, pool := range pools {
 		for _, target := range poolToTarget[backendPoolName(*pool.Name)] {
@@ -91,7 +91,7 @@ func (c PoolContext) applyBlacklist(pools []n.ApplicationGatewayBackendAddressPo
 
 func (c PoolContext) applyWhitelist(pools []n.ApplicationGatewayBackendAddressPool, whitelist targetWhitelist) []n.ApplicationGatewayBackendAddressPool {
 	poolToTarget := c.getPoolToTargets()
-	managedPools := make(backendPoolsByName)
+	managedPools := make(poolsByName)
 
 	for _, pool := range pools {
 		for _, target := range poolToTarget[backendPoolName(*pool.Name)] {
@@ -114,12 +114,12 @@ func logTarget(verbosity glog.Level, target Target, message string) {
 // getPoolToTargets creates a map from backend pool to targets this backend pool is responsible for.
 // We rely on the configuration that AGIC has already constructed: Frontend Listener, Routing Rules, etc.
 // We use the Listener to obtain the target hostname, the RoutingRule to get the
-func (c PoolContext) getPoolToTargets() BackendPoolToTargets {
+func (c PoolContext) getPoolToTargets() poolToTargets {
 
 	listenerMap := c.listenersByName()
 	pathNameToPath := c.pathsByName()
 
-	poolToTarget := make(BackendPoolToTargets)
+	poolToTarget := make(poolToTargets)
 
 	for _, rule := range c.RoutingRules {
 
@@ -167,7 +167,7 @@ func (c PoolContext) getPoolToTargets() BackendPoolToTargets {
 	return poolToTarget
 }
 
-func poolsMapToList(pools backendPoolsByName) []n.ApplicationGatewayBackendAddressPool {
+func poolsMapToList(pools poolsByName) []n.ApplicationGatewayBackendAddressPool {
 	var managedPools []n.ApplicationGatewayBackendAddressPool
 	for _, pool := range pools {
 		managedPools = append(managedPools, pool)

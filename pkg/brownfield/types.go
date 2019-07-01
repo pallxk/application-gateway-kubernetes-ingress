@@ -17,16 +17,13 @@ type PoolContext struct {
 	PathMaps     []n.ApplicationGatewayURLPathMap
 }
 
+type listenerName string
+type pathmapName string
 type backendPoolName string
 
-// BackendPoolToTargets is a mapping of a backend pool name to the traffic targets the given pool is responsible for.
-type BackendPoolToTargets map[backendPoolName][]Target
+type poolToTargets map[backendPoolName][]Target
 
-type listenerName string
-
-type pathmapName string
-
-type backendPoolsByName map[backendPoolName]n.ApplicationGatewayBackendAddressPool
+type poolsByName map[backendPoolName]n.ApplicationGatewayBackendAddressPool
 
 type targetWhitelist *[]Target
 type targetBlacklist *[]Target

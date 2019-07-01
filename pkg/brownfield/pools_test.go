@@ -43,7 +43,7 @@ var _ = Describe("test targetBlacklist/targetWhitelist backend pools", func() {
 		Path:     to.StringPtr(fixtures.PathFoo),
 	}
 
-	targets := BackendPoolToTargets{
+	targets := poolToTargets{
 		fixtures.BackendAddressPoolName1: {
 			targetFoo,
 
