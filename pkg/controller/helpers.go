@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"reflect"
+	"regexp"
 	"strings"
 
 	n "github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-12-01/network"
@@ -127,4 +128,32 @@ func deleteKeyFromJSON(jsonWithEtag []byte, keysToDelete ...string) ([]byte, err
 		deleteKey(&m, keyToDelete)
 	}
 	return json.Marshal(m)
+}
+
+// GetSubscriptionIDFromResourceID gets subscriptionId from resourceID
+func GetSubscriptionIDFromResourceID(id string) string {
+	regex := regexp.MustCompile("^/subscriptions/([^/]*)")
+	stringSubmatch := regex.FindStringSubmatch(id)
+	return stringSubmatch[1]
+}
+
+// GetResourceGroupFromResourceID gets resource group from resourceID
+func GetResourceGroupFromResourceID(id string) string {
+	regex := regexp.MustCompile("resourceGroups/([^/]*)")
+	stringSubmatch := regex.FindStringSubmatch(id)
+	return stringSubmatch[1]
+}
+
+// GetResourceNameFromResourceID gets resource name from resourceID
+func GetResourceNameFromResourceID(id string) string {
+	regex := regexp.MustCompile("providers/(?:[^/]*)/(?:[^/]+)/([^/]+)")
+	stringSubmatch := regex.FindStringSubmatch(id)
+	return stringSubmatch[1]
+}
+
+// GetSubResourceNameFromResourceID gets sub resource name from resourceID
+func GetSubResourceNameFromResourceID(id string) string {
+	regex := regexp.MustCompile("providers/(?:[^/]*)/(?:[^/]+)/(?:[^/]+)/(?:[^/]+)/([^/]+)$")
+	stringSubmatch := regex.FindStringSubmatch(id)
+	return stringSubmatch[1]
 }
