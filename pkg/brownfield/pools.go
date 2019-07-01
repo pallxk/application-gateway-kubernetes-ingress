@@ -16,25 +16,16 @@ import (
 )
 
 // GetPoolToTargetMapping creates a map from backend pool to targets this backend pool is responsible for.
-func GetPoolToTargetMapping(ctx BrownfieldContext) BackendPoolToTargets {
+func GetPoolToTargetMapping(ctx BFContext) BackendPoolToTargets {
 
-	// Index listeners by their Name
-	listenerMap := make(map[string]*n.ApplicationGatewayHTTPListener)
-	for _, listener := range ctx.Listeners {
-		listenerMap[*listener.Name] = listener
-	}
+	listenerMap := ctx.listenersByName()
+	pathNameToPath := ctx.pathsByName()
 
-	// Index Path Maps by their Name
-	pathNameToPath := make(map[string]n.ApplicationGatewayURLPathMap)
-	for _, pm := range ctx.PathMaps {
-		pathNameToPath[*pm.Name] = pm
-	}
-
-	poolToTarget := make(map[string][]Target)
+	poolToTarget := make(BackendPoolToTargets)
 
 	for _, rule := range ctx.RoutingRules {
 
-		listenerName := utils.GetLastChunkOfSlashed(*rule.HTTPListener.ID)
+		listenerName := listenerName(utils.GetLastChunkOfSlashed(*rule.HTTPListener.ID))
 
 		var hostName string
 		if listener, found := listenerMap[listenerName]; !found {
@@ -53,17 +44,17 @@ func GetPoolToTargetMapping(ctx BrownfieldContext) BackendPoolToTargets {
 			if rule.BackendAddressPool == nil {
 				continue
 			}
-			poolName := utils.GetLastChunkOfSlashed(*rule.BackendAddressPool.ID)
+			poolName := backendPoolName(utils.GetLastChunkOfSlashed(*rule.BackendAddressPool.ID))
 			poolToTarget[poolName] = append(poolToTarget[poolName], target)
 		} else {
 			// Follow the path map
-			pathMapName := utils.GetLastChunkOfSlashed(*rule.URLPathMap.ID)
+			pathMapName := pathmapName(utils.GetLastChunkOfSlashed(*rule.URLPathMap.ID))
 			for _, pathRule := range *pathNameToPath[pathMapName].PathRules {
 				if pathRule.BackendAddressPool == nil {
 					glog.Errorf("Path Rule %+v does not have BackendAddressPool", *pathRule.Name)
 					continue
 				}
-				poolName := utils.GetLastChunkOfSlashed(*pathRule.BackendAddressPool.ID)
+				poolName := backendPoolName(utils.GetLastChunkOfSlashed(*pathRule.BackendAddressPool.ID))
 				if pathRule.Paths == nil {
 					glog.V(5).Infof("Path Rule %+v does not have paths list", *pathRule.Name)
 					continue
@@ -94,7 +85,7 @@ func MergePools(pools ...[]n.ApplicationGatewayBackendAddressPool) []n.Applicati
 }
 
 // GetManagedPools filters the given list of backend pools to the list pools that AGIC is allowed to manage.
-func GetManagedPools(pools []n.ApplicationGatewayBackendAddressPool, managed []*mtv1.AzureIngressManagedTarget, prohibited []*ptv1.AzureIngressProhibitedTarget, ctx BrownfieldContext) []n.ApplicationGatewayBackendAddressPool {
+func GetManagedPools(pools []n.ApplicationGatewayBackendAddressPool, managed []*mtv1.AzureIngressManagedTarget, prohibited []*ptv1.AzureIngressProhibitedTarget, ctx BFContext) []n.ApplicationGatewayBackendAddressPool {
 	blacklist := getProhibitedTargetList(prohibited)
 	whitelist := getManagedTargetList(managed)
 
@@ -117,11 +108,35 @@ func logTarget(verbosity glog.Level, target Target, message string) {
 	glog.V(verbosity).Infof(message+": %s", t)
 }
 
+// PruneManagedPools removes the managed pools from the given list and returns a list of pools that is NOT managed by AGIC.
+func PruneManagedPools(pools []n.ApplicationGatewayBackendAddressPool, managedTargets []*mtv1.AzureIngressManagedTarget, prohibitedTargets []*ptv1.AzureIngressProhibitedTarget, ctx BFContext) []n.ApplicationGatewayBackendAddressPool {
+	managedPools := GetManagedPools(pools, managedTargets, prohibitedTargets, ctx)
+	if managedPools == nil {
+		return pools
+	}
+	managedByName := indexByName(managedPools)
+	var unmanagedPools []n.ApplicationGatewayBackendAddressPool
+	for _, pool := range pools {
+		if _, isManaged := managedByName[backendPoolName(*pool.Name)]; !isManaged {
+			unmanagedPools = append(unmanagedPools, pool)
+		}
+	}
+	return unmanagedPools
+}
+
+func indexByName(pools []n.ApplicationGatewayBackendAddressPool) map[backendPoolName]n.ApplicationGatewayBackendAddressPool {
+	indexed := make(map[backendPoolName]n.ApplicationGatewayBackendAddressPool)
+	for _, pool := range pools {
+		indexed[backendPoolName(*pool.Name)] = pool
+	}
+	return indexed
+}
+
 func applyBlacklist(pools []n.ApplicationGatewayBackendAddressPool, poolToTarget BackendPoolToTargets, blacklist *[]Target) []n.ApplicationGatewayBackendAddressPool {
 	managedPools := make(map[string]n.ApplicationGatewayBackendAddressPool)
 	// Apply blacklist
 	for _, pool := range pools {
-		for _, target := range poolToTarget[*pool.Name] {
+		for _, target := range poolToTarget[backendPoolName(*pool.Name)] {
 			if target.IsIn(blacklist) {
 				logTarget(5, target, "Target is in blacklist")
 				continue
@@ -137,7 +152,7 @@ func applyWhitelist(pools []n.ApplicationGatewayBackendAddressPool, poolToTarget
 	managedPools := make(map[string]n.ApplicationGatewayBackendAddressPool)
 	// There was no blacklist; now look for explicitly white-listed backend pools.
 	for _, pool := range pools {
-		for _, target := range poolToTarget[*pool.Name] {
+		for _, target := range poolToTarget[backendPoolName(*pool.Name)] {
 			if !target.IsIn(whitelist) {
 				logTarget(5, target, "Target is NOT in whitelist")
 				continue
@@ -156,23 +171,4 @@ func poolsMapToList(poolSet map[string]n.ApplicationGatewayBackendAddressPool) [
 		managedPools = append(managedPools, pool)
 	}
 	return managedPools
-}
-
-// PruneManagedPools removes the managed pools from the given list and returns a list of pools that is NOT managed by AGIC.
-func PruneManagedPools(pools []n.ApplicationGatewayBackendAddressPool, managedTargets []*mtv1.AzureIngressManagedTarget, prohibitedTargets []*ptv1.AzureIngressProhibitedTarget, ctx BrownfieldContext) []n.ApplicationGatewayBackendAddressPool {
-	managedPool := GetManagedPools(pools, managedTargets, prohibitedTargets, ctx)
-	if managedPool == nil {
-		return pools
-	}
-	indexed := make(map[string]n.ApplicationGatewayBackendAddressPool)
-	for _, pool := range managedPool {
-		indexed[*pool.Name] = pool
-	}
-	var unmanagedPools []n.ApplicationGatewayBackendAddressPool
-	for _, probe := range pools {
-		if _, isManaged := indexed[*probe.Name]; !isManaged {
-			unmanagedPools = append(unmanagedPools, probe)
-		}
-	}
-	return unmanagedPools
 }

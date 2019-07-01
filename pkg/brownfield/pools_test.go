@@ -60,7 +60,7 @@ var _ = Describe("test blacklist/whitelist backend pools", func() {
 		},
 	}
 
-	brownfieldContext := BrownfieldContext{
+	brownfieldContext := BFContext{
 		Listeners:    listeners,
 		RoutingRules: routingRules,
 		PathMaps:     paths,

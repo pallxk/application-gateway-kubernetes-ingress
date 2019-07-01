@@ -48,7 +48,7 @@ func (c appGwConfigBuilder) getPools(cbCtx *ConfigBuilderContext) []n.Applicatio
 	}
 
 	if cbCtx.EnvVariables.EnableBrownfieldDeployment == "true" {
-		brownfieldCtx := brownfield.BrownfieldContext{}
+		brownfieldCtx := brownfield.BFContext{}
 		brownfieldCtx.RoutingRules, brownfieldCtx.PathMaps = c.getRules(cbCtx)
 		_, listenerMap := c.getListeners(cbCtx)
 		for _, listener := range listenerMap {
