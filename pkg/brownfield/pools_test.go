@@ -31,7 +31,7 @@ var _ = Describe("test blacklist/whitelist backend pools", func() {
 		*fixtures.GeURLPathMap(),
 	}
 
-	expected := map[string][]Target{
+	expected := BackendPoolToTargets{
 		fixtures.BackendAddressPoolName1: {
 			{
 				Hostname: tests.Host,
@@ -60,9 +60,15 @@ var _ = Describe("test blacklist/whitelist backend pools", func() {
 		},
 	}
 
+	brownfieldContext := BrownfieldContext{
+		Listeners:    listeners,
+		RoutingRules: routingRules,
+		PathMaps:     paths,
+	}
+
 	Context("Test normalizing  permit/prohibit URL paths", func() {
 
-		actual := GetPoolToTargetMapping(listeners, routingRules, paths)
+		actual := GetPoolToTargetMapping(brownfieldContext)
 
 		It("should have created map of pool name to list of targets", func() {
 			Expect(actual).To(Equal(expected))
@@ -103,19 +109,23 @@ var _ = Describe("test blacklist/whitelist backend pools", func() {
 	Context("Test GetManagedPools()", func() {
 
 		It("should be able to merge lists of pools", func() {
+
+			// Create a list of pools
 			pools := []n.ApplicationGatewayBackendAddressPool{
-				fixtures.GetBackendPool1(),
-				fixtures.GetBackendPool2(),
+				fixtures.GetBackendPool1(), // managed
+				fixtures.GetBackendPool2(), // managed
+				fixtures.GetBackendPool3(), // unmanaged / prohibited
 			}
 			managedTargets := fixtures.GetManagedTargets()
 			prohibitedTargets := fixtures.GetProhibitedTargets()
 
 			// !! Action !!
-			actual := GetManagedPools(pools, managedTargets, prohibitedTargets, listeners, routingRules, paths)
+			actual := GetManagedPools(pools, managedTargets, prohibitedTargets, brownfieldContext)
 
 			Expect(len(actual)).To(Equal(2))
 			Expect(actual).To(ContainElement(fixtures.GetBackendPool1()))
 			Expect(actual).To(ContainElement(fixtures.GetBackendPool2()))
+			Expect(actual).ToNot(ContainElement(fixtures.GetBackendPool3()))
 		})
 	})
 
@@ -131,7 +141,7 @@ var _ = Describe("test blacklist/whitelist backend pools", func() {
 			prohibitedTargets := fixtures.GetProhibitedTargets()
 
 			// !! Action !!
-			actual := PruneManagedPools(pools, managedTargets, prohibitedTargets, listeners, routingRules, paths)
+			actual := PruneManagedPools(pools, managedTargets, prohibitedTargets, brownfieldContext)
 
 			Expect(len(actual)).To(Equal(1))
 			Expect(actual).To(ContainElement(fixtures.GetBackendPool3()))

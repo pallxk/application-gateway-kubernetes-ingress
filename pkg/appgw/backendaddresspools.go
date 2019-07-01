@@ -48,16 +48,15 @@ func (c appGwConfigBuilder) getPools(cbCtx *ConfigBuilderContext) []n.Applicatio
 	}
 
 	if cbCtx.EnvVariables.EnableBrownfieldDeployment == "true" {
-		var listeners []*n.ApplicationGatewayHTTPListener
+		brownfieldCtx := brownfield.BrownfieldContext{}
+		brownfieldCtx.RoutingRules, brownfieldCtx.PathMaps = c.getRules(cbCtx)
 		_, listenerMap := c.getListeners(cbCtx)
 		for _, listener := range listenerMap {
-			listeners = append(listeners, listener)
+			brownfieldCtx.Listeners = append(brownfieldCtx.Listeners, listener)
 		}
 
-		routingRules, pathMaps := c.getRules(cbCtx)
-
 		// These are backend pools we created from Ingress definition. These are pools we are allowed to control.
-		newManaged := brownfield.GetManagedPools(allPools, cbCtx.ManagedTargets, cbCtx.ProhibitedTargets, listeners, routingRules, pathMaps)
+		newManaged := brownfield.GetManagedPools(allPools, cbCtx.ManagedTargets, cbCtx.ProhibitedTargets, brownfieldCtx)
 
 		var allExisting []n.ApplicationGatewayBackendAddressPool
 		if c.appGw.BackendAddressPools != nil {
@@ -65,7 +64,7 @@ func (c appGwConfigBuilder) getPools(cbCtx *ConfigBuilderContext) []n.Applicatio
 		}
 
 		// These are pools we fetch from App Gateway; These we are NOT allowed to mutate.
-		existingUnmanaged := brownfield.PruneManagedPools(allExisting, cbCtx.ManagedTargets, cbCtx.ProhibitedTargets, listeners, routingRules, pathMaps)
+		existingUnmanaged := brownfield.PruneManagedPools(allExisting, cbCtx.ManagedTargets, cbCtx.ProhibitedTargets, brownfieldCtx)
 
 		glog.V(3).Info("All backend pools from Ingress definition:", getPoolNames(allPools))
 		glog.V(3).Info("Subset of pools from Ingress; AGIC will manage:", getPoolNames(newManaged))

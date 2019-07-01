@@ -15,24 +15,24 @@ import (
 	"github.com/Azure/application-gateway-kubernetes-ingress/pkg/utils"
 )
 
-// GetPoolToTargetMapping creates a map from backend pool to target objects.
-func GetPoolToTargetMapping(listeners []*n.ApplicationGatewayHTTPListener, routingRules []n.ApplicationGatewayRequestRoutingRule, pathMaps []n.ApplicationGatewayURLPathMap) map[string][]Target {
+// GetPoolToTargetMapping creates a map from backend pool to targets this backend pool is responsible for.
+func GetPoolToTargetMapping(ctx BrownfieldContext) BackendPoolToTargets {
 
 	// Index listeners by their Name
 	listenerMap := make(map[string]*n.ApplicationGatewayHTTPListener)
-	for _, listener := range listeners {
+	for _, listener := range ctx.Listeners {
 		listenerMap[*listener.Name] = listener
 	}
 
 	// Index Path Maps by their Name
 	pathNameToPath := make(map[string]n.ApplicationGatewayURLPathMap)
-	for _, pm := range pathMaps {
+	for _, pm := range ctx.PathMaps {
 		pathNameToPath[*pm.Name] = pm
 	}
 
 	poolToTarget := make(map[string][]Target)
 
-	for _, rule := range routingRules {
+	for _, rule := range ctx.RoutingRules {
 
 		listenerName := utils.GetLastChunkOfSlashed(*rule.HTTPListener.ID)
 
@@ -93,53 +93,61 @@ func MergePools(pools ...[]n.ApplicationGatewayBackendAddressPool) []n.Applicati
 	return merged
 }
 
-// GetManagedPools returns the list of backend pools that will be managed by AGIC.
-func GetManagedPools(pools []n.ApplicationGatewayBackendAddressPool, managedTargets []*mtv1.AzureIngressManagedTarget, prohibitedTargets []*ptv1.AzureIngressProhibitedTarget, listeners []*n.ApplicationGatewayHTTPListener, routingRules []n.ApplicationGatewayRequestRoutingRule, pathMaps []n.ApplicationGatewayURLPathMap) []n.ApplicationGatewayBackendAddressPool {
-	blacklist := getProhibitedTargetList(prohibitedTargets)
-	whitelist := getManagedTargetList(managedTargets)
+// GetManagedPools filters the given list of backend pools to the list pools that AGIC is allowed to manage.
+func GetManagedPools(pools []n.ApplicationGatewayBackendAddressPool, managed []*mtv1.AzureIngressManagedTarget, prohibited []*ptv1.AzureIngressProhibitedTarget, ctx BrownfieldContext) []n.ApplicationGatewayBackendAddressPool {
+	blacklist := getProhibitedTargetList(prohibited)
+	whitelist := getManagedTargetList(managed)
 
 	if len(*blacklist) == 0 && len(*whitelist) == 0 {
-		// There is neither blacklist nor whitelist -- AGIC manages all available backend pools.
+		// There is neither blacklist nor whitelist -- AGIC will manage all.
 		return pools
 	}
 
-	managedPoolsMap := make(map[string]n.ApplicationGatewayBackendAddressPool)
+	poolToTarget := GetPoolToTargetMapping(ctx)
 
-	poolToTarget := GetPoolToTargetMapping(listeners, routingRules, pathMaps)
-
-	// Process Blacklist first
+	// Ignore the whitelist if blacklist exists
 	if len(*blacklist) > 0 {
-		// Apply blacklist
-		for _, pool := range pools {
-			for _, target := range poolToTarget[*pool.Name] {
-				if target.IsIn(blacklist) {
-					t, _ := target.MarshalJSON()
-					glog.V(5).Infof("Target is in blacklist: %s", t)
-					continue
-				}
-				t, _ := target.MarshalJSON()
-				glog.V(5).Infof("Target is implicitly managed: %s", t)
-				managedPoolsMap[*pool.Name] = pool
-			}
-		}
-		return poolsMapToList(managedPoolsMap)
+		return applyBlacklist(pools, poolToTarget, blacklist)
 	}
+	return applyWhitelist(pools, poolToTarget, whitelist)
+}
 
-	// Is it whitelisted?
+func logTarget(verbosity glog.Level, target Target, message string) {
+	t, _ := target.MarshalJSON()
+	glog.V(verbosity).Infof(message+": %s", t)
+}
+
+func applyBlacklist(pools []n.ApplicationGatewayBackendAddressPool, poolToTarget BackendPoolToTargets, blacklist *[]Target) []n.ApplicationGatewayBackendAddressPool {
+	managedPools := make(map[string]n.ApplicationGatewayBackendAddressPool)
+	// Apply blacklist
+	for _, pool := range pools {
+		for _, target := range poolToTarget[*pool.Name] {
+			if target.IsIn(blacklist) {
+				logTarget(5, target, "Target is in blacklist")
+				continue
+			}
+			logTarget(5, target, "Target is implicitly managed")
+			managedPools[*pool.Name] = pool
+		}
+	}
+	return poolsMapToList(managedPools)
+}
+
+func applyWhitelist(pools []n.ApplicationGatewayBackendAddressPool, poolToTarget BackendPoolToTargets, whitelist *[]Target) []n.ApplicationGatewayBackendAddressPool {
+	managedPools := make(map[string]n.ApplicationGatewayBackendAddressPool)
+	// There was no blacklist; now look for explicitly white-listed backend pools.
 	for _, pool := range pools {
 		for _, target := range poolToTarget[*pool.Name] {
 			if !target.IsIn(whitelist) {
-				t, _ := target.MarshalJSON()
-				glog.V(5).Infof("Target is NOT in whitelist: %s", t)
+				logTarget(5, target, "Target is NOT in whitelist")
 				continue
 
 			}
-			t, _ := target.MarshalJSON()
-			glog.V(5).Infof("Target is in whitelist: %s", t)
-			managedPoolsMap[*pool.Name] = pool
+			logTarget(5, target, "Target is in whitelist")
+			managedPools[*pool.Name] = pool
 		}
 	}
-	return poolsMapToList(managedPoolsMap)
+	return poolsMapToList(managedPools)
 }
 
 func poolsMapToList(poolSet map[string]n.ApplicationGatewayBackendAddressPool) []n.ApplicationGatewayBackendAddressPool {
@@ -151,8 +159,8 @@ func poolsMapToList(poolSet map[string]n.ApplicationGatewayBackendAddressPool) [
 }
 
 // PruneManagedPools removes the managed pools from the given list and returns a list of pools that is NOT managed by AGIC.
-func PruneManagedPools(pools []n.ApplicationGatewayBackendAddressPool, managedTargets []*mtv1.AzureIngressManagedTarget, prohibitedTargets []*ptv1.AzureIngressProhibitedTarget, listeners []*n.ApplicationGatewayHTTPListener, routingRules []n.ApplicationGatewayRequestRoutingRule, paths []n.ApplicationGatewayURLPathMap) []n.ApplicationGatewayBackendAddressPool {
-	managedPool := GetManagedPools(pools, managedTargets, prohibitedTargets, listeners, routingRules, paths)
+func PruneManagedPools(pools []n.ApplicationGatewayBackendAddressPool, managedTargets []*mtv1.AzureIngressManagedTarget, prohibitedTargets []*ptv1.AzureIngressProhibitedTarget, ctx BrownfieldContext) []n.ApplicationGatewayBackendAddressPool {
+	managedPool := GetManagedPools(pools, managedTargets, prohibitedTargets, ctx)
 	if managedPool == nil {
 		return pools
 	}
