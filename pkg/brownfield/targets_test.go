@@ -21,7 +21,7 @@ func TestAppgw(t *testing.T) {
 	RunSpecs(t, "Brownfield Deployment Tests")
 }
 
-var _ = Describe("test blacklist/whitelist health probes", func() {
+var _ = Describe("test targetBlacklist/targetWhitelist health probes", func() {
 
 	Context("Test normalizing  permit/prohibit URL paths", func() {
 		actual := normalizePath("*//*hello/**/*//")

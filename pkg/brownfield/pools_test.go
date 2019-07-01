@@ -15,7 +15,7 @@ import (
 	"github.com/Azure/application-gateway-kubernetes-ingress/pkg/tests/fixtures"
 )
 
-var _ = Describe("test blacklist/whitelist backend pools", func() {
+var _ = Describe("test targetBlacklist/targetWhitelist backend pools", func() {
 
 	listeners := []*n.ApplicationGatewayHTTPListener{
 		fixtures.GetListener1(),
@@ -31,13 +31,21 @@ var _ = Describe("test blacklist/whitelist backend pools", func() {
 		*fixtures.GeURLPathMap(),
 	}
 
-	expected := BackendPoolToTargets{
+	brownfieldContext := PoolContext{
+		Listeners:    listeners,
+		RoutingRules: routingRules,
+		PathMaps:     paths,
+	}
+
+	targetFoo := Target{
+		Hostname: tests.Host,
+		Port:     443,
+		Path:     to.StringPtr(fixtures.PathFoo),
+	}
+
+	targets := BackendPoolToTargets{
 		fixtures.BackendAddressPoolName1: {
-			{
-				Hostname: tests.Host,
-				Port:     443,
-				Path:     to.StringPtr(fixtures.PathFoo),
-			},
+			targetFoo,
 
 			{
 				Hostname: tests.Host,
@@ -60,25 +68,27 @@ var _ = Describe("test blacklist/whitelist backend pools", func() {
 		},
 	}
 
-	brownfieldContext := BFContext{
-		Listeners:    listeners,
-		RoutingRules: routingRules,
-		PathMaps:     paths,
+	pool1 := fixtures.GetBackendPool1()
+	pool2 := fixtures.GetBackendPool2()
+	pool3 := fixtures.GetBackendPool3()
+
+	// Create a list of pools
+	pools := []n.ApplicationGatewayBackendAddressPool{
+		pool1, // managed
+		pool2, // managed
+		pool3, // unmanaged / prohibited
 	}
 
 	Context("Test normalizing  permit/prohibit URL paths", func() {
 
-		actual := GetPoolToTargetMapping(brownfieldContext)
+		actual := brownfieldContext.getPoolToTargets()
 
 		It("should have created map of pool name to list of targets", func() {
-			Expect(actual).To(Equal(expected))
+			Expect(actual).To(Equal(targets))
 		})
 	})
 
 	Context("Test MergePools()", func() {
-
-		pool1 := fixtures.GetBackendPool1()
-		pool2 := fixtures.GetBackendPool2()
 
 		poolList0 := []n.ApplicationGatewayBackendAddressPool{
 			pool1,
@@ -110,12 +120,6 @@ var _ = Describe("test blacklist/whitelist backend pools", func() {
 
 		It("should be able to merge lists of pools", func() {
 
-			// Create a list of pools
-			pools := []n.ApplicationGatewayBackendAddressPool{
-				fixtures.GetBackendPool1(), // managed
-				fixtures.GetBackendPool2(), // managed
-				fixtures.GetBackendPool3(), // unmanaged / prohibited
-			}
 			managedTargets := fixtures.GetManagedTargets()
 			prohibitedTargets := fixtures.GetProhibitedTargets()
 
@@ -123,20 +127,15 @@ var _ = Describe("test blacklist/whitelist backend pools", func() {
 			actual := GetManagedPools(pools, managedTargets, prohibitedTargets, brownfieldContext)
 
 			Expect(len(actual)).To(Equal(2))
-			Expect(actual).To(ContainElement(fixtures.GetBackendPool1()))
-			Expect(actual).To(ContainElement(fixtures.GetBackendPool2()))
-			Expect(actual).ToNot(ContainElement(fixtures.GetBackendPool3()))
+			Expect(actual).To(ContainElement(pool1))
+			Expect(actual).To(ContainElement(pool2))
+			Expect(actual).ToNot(ContainElement(pool3))
 		})
 	})
 
 	Context("Test PruneManagedPools()", func() {
 
 		It("should be able to merge lists of pools", func() {
-			pools := []n.ApplicationGatewayBackendAddressPool{
-				fixtures.GetBackendPool1(),
-				fixtures.GetBackendPool2(),
-				fixtures.GetBackendPool3(),
-			}
 			managedTargets := fixtures.GetManagedTargets()
 			prohibitedTargets := fixtures.GetProhibitedTargets()
 
@@ -144,7 +143,39 @@ var _ = Describe("test blacklist/whitelist backend pools", func() {
 			actual := PruneManagedPools(pools, managedTargets, prohibitedTargets, brownfieldContext)
 
 			Expect(len(actual)).To(Equal(1))
-			Expect(actual).To(ContainElement(fixtures.GetBackendPool3()))
+			Expect(actual).To(ContainElement(pool3))
+		})
+	})
+
+	Context("Apply Blacklist", func() {
+
+		It("should filter a list of backend pools based on a Blacklist", func() {
+			blacklistedTargets := []Target{targetFoo}
+
+			// !! Action !!
+			actual := brownfieldContext.applyBlacklist(pools, &blacklistedTargets)
+
+			Expect(len(pools)).To(Equal(3))
+			Expect(len(actual)).To(Equal(2))
+			Expect(actual).To(ContainElement(pool1))
+			Expect(actual).To(ContainElement(pool2))
+			Expect(actual).ToNot(ContainElement(pool3))
+		})
+	})
+
+	Context("Apply Whitelist", func() {
+
+		It("should filter a list of backend pools based on a Whitelist", func() {
+			whitelistedTargets := []Target{targetFoo}
+
+			// !! Action !!
+			actual := brownfieldContext.applyWhitelist(pools, &whitelistedTargets)
+
+			Expect(len(pools)).To(Equal(3))
+			Expect(len(actual)).To(Equal(1))
+			Expect(actual).To(ContainElement(pool1))
+			Expect(actual).ToNot(ContainElement(pool2))
+			Expect(actual).ToNot(ContainElement(pool3))
 		})
 	})
 
