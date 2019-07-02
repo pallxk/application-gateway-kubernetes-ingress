@@ -30,6 +30,13 @@ var _ = Describe("test targetBlacklist/targetWhitelist health probes", func() {
 		})
 	})
 
+	Context("Test normalizing  permit/prohibit URL paths", func() {
+		actual := normalizePathWithTail("*//*hello/**/*//")
+		It("should have exactly 1 record", func() {
+			Expect(actual).To(Equal("*//*hello/"))
+		})
+	})
+
 	Context("test getManagedTargetList", func() {
 		actual := getManagedTargetList(fixtures.GetManagedTargets())
 		It("Should have produced correct Managed Targets list", func() {

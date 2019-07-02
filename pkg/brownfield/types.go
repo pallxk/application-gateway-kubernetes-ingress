@@ -27,3 +27,6 @@ type poolsByName map[backendPoolName]n.ApplicationGatewayBackendAddressPool
 
 type targetWhitelist *[]Target
 type targetBlacklist *[]Target
+
+type probeName string
+type probesByName map[probeName]n.ApplicationGatewayProbe

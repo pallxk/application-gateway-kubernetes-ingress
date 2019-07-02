@@ -8,6 +8,7 @@ package appgw
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	n "github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-12-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
@@ -16,23 +17,46 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/Azure/application-gateway-kubernetes-ingress/pkg/annotations"
+	"github.com/Azure/application-gateway-kubernetes-ingress/pkg/brownfield"
 	"github.com/Azure/application-gateway-kubernetes-ingress/pkg/sorter"
 )
 
 func (c *appGwConfigBuilder) HealthProbesCollection(cbCtx *ConfigBuilderContext) error {
 	healthProbeCollection, _ := c.newProbesMap(cbCtx)
 	glog.V(5).Infof("Will create %d App Gateway probes.", len(healthProbeCollection))
-	probes := make([]n.ApplicationGatewayProbe, 0, len(healthProbeCollection))
+	allProbes := make([]n.ApplicationGatewayProbe, 0, len(healthProbeCollection))
 	for _, probe := range healthProbeCollection {
-		probes = append(probes, probe)
+		allProbes = append(allProbes, probe)
 	}
 
 	if cbCtx.EnvVariables.EnableBrownfieldDeployment == "true" {
-		// TODO(draychev): implement
+		// These are health probes we created from existing Kubernetes resources. These are probes we are allowed to control.
+		newManaged := brownfield.GetManagedProbes(allProbes, cbCtx.ManagedTargets, cbCtx.ProhibitedTargets)
+		var allExisting []n.ApplicationGatewayProbe
+		if c.appGw.Probes != nil {
+			allExisting = *c.appGw.Probes
+		}
+
+		// These are Health Probes we fetch from App Gateway; These we are NOT allowed to mutate.
+		existingUnmanaged := brownfield.PruneManagedProbes(allExisting, cbCtx.ManagedTargets, cbCtx.ProhibitedTargets)
+
+		glog.V(3).Info("All health probes from Kubernetes resources:", getProbeNames(allProbes))
+		glog.V(3).Info("Subset of probes from Kubernetes resources; AGIC will manage:", getProbeNames(newManaged))
+		glog.V(3).Info("Pools from App Gateway; AGIC will not mutate:", getProbeNames(existingUnmanaged))
+
+		allProbes = brownfield.MergeProbes(existingUnmanaged, newManaged)
 	}
-	sort.Sort(sorter.ByHealthProbeName(probes))
-	c.appGw.Probes = &probes
+	sort.Sort(sorter.ByHealthProbeName(allProbes))
+	c.appGw.Probes = &allProbes
 	return nil
+}
+
+func getProbeNames(pool []n.ApplicationGatewayProbe) string {
+	var names []string
+	for _, p := range pool {
+		names = append(names, *p.Name)
+	}
+	return strings.Join(names, ", ")
 }
 
 func (c *appGwConfigBuilder) newProbesMap(cbCtx *ConfigBuilderContext) (map[string]n.ApplicationGatewayProbe, map[backendIdentifier]*n.ApplicationGatewayProbe) {

@@ -57,11 +57,7 @@ func MergePools(pools ...[]n.ApplicationGatewayBackendAddressPool) []n.Applicati
 			uniqPool[backendPoolName(*pool.Name)] = pool
 		}
 	}
-	var merged []n.ApplicationGatewayBackendAddressPool
-	for _, pool := range uniqPool {
-		merged = append(merged, pool)
-	}
-	return merged
+	return poolsMapToList(uniqPool)
 }
 
 func indexByName(pools []n.ApplicationGatewayBackendAddressPool) poolsByName {

@@ -7,6 +7,7 @@ package brownfield
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
 
@@ -117,4 +118,14 @@ func normalizePath(path string) string {
 		trimmed = strings.TrimRight(path, cutset)
 	}
 	return trimmed
+}
+
+func normalizePathWithTail(path string) string {
+	trimmed, prevTrimmed := "", path
+	cutset := "*/"
+	for trimmed != prevTrimmed {
+		prevTrimmed = trimmed
+		trimmed = strings.TrimRight(path, cutset)
+	}
+	return fmt.Sprintf("%s/", trimmed)
 }

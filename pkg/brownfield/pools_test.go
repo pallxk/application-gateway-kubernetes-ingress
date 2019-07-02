@@ -43,29 +43,26 @@ var _ = Describe("test targetBlacklist/targetWhitelist backend pools", func() {
 		Path:     to.StringPtr(fixtures.PathFoo),
 	}
 
+	targetBar := Target{
+		Hostname: tests.Host,
+		Port:     443,
+		Path:     to.StringPtr(fixtures.PathBar),
+	}
+
+	targetBaz := Target{
+		Hostname: tests.Host,
+		Port:     443,
+		Path:     to.StringPtr(fixtures.PathBaz),
+	}
+
+	targetOtherHost := Target{
+		Hostname: tests.OtherHost,
+		Port:     80,
+	}
+
 	targets := poolToTargets{
-		fixtures.BackendAddressPoolName1: {
-			targetFoo,
-
-			{
-				Hostname: tests.Host,
-				Port:     443,
-				Path:     to.StringPtr(fixtures.PathBar),
-			},
-
-			{
-				Hostname: tests.Host,
-				Port:     443,
-				Path:     to.StringPtr(fixtures.PathBaz),
-			},
-		},
-
-		fixtures.BackendAddressPoolName2: {
-			{
-				Hostname: tests.OtherHost,
-				Port:     80,
-			},
-		},
+		fixtures.BackendAddressPoolName1: {targetFoo, targetBar, targetBaz},
+		fixtures.BackendAddressPoolName2: {targetOtherHost},
 	}
 
 	pool1 := fixtures.GetBackendPool1()
@@ -84,7 +81,9 @@ var _ = Describe("test targetBlacklist/targetWhitelist backend pools", func() {
 		actual := brownfieldContext.getPoolToTargets()
 
 		It("should have created map of pool name to list of targets", func() {
-			Expect(actual).To(Equal(targets))
+			Expect(len(actual)).To(Equal(2))
+			Expect(actual[fixtures.BackendAddressPoolName1]).To(Equal(targets[fixtures.BackendAddressPoolName1]))
+			Expect(actual[fixtures.BackendAddressPoolName2]).To(Equal(targets[fixtures.BackendAddressPoolName2]))
 		})
 	})
 
