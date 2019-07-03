@@ -24,12 +24,9 @@ func (c *appGwConfigBuilder) RequestRoutingRules(cbCtx *ConfigBuilderContext) er
 	sort.Sort(sorter.ByRequestRoutingRuleName(requestRoutingRules))
 	c.appGw.RequestRoutingRules = &requestRoutingRules
 
-	if cbCtx.EnvVariables.EnableBrownfieldDeployment == "true" {
-		// TODO(draychev): implement
-	}
-
 	sort.Sort(sorter.ByPathMap(pathMaps))
 	c.appGw.URLPathMaps = &pathMaps
+
 	return nil
 }
 
@@ -221,7 +218,7 @@ func (c *appGwConfigBuilder) pathMaps(ingress *v1beta1.Ingress, cbCtx *ConfigBui
 			}
 		} else {
 			// associate backend with a path-based rule
-			pathRule := n.ApplicationGatewayPathRule{
+			pathRules = append(pathRules, n.ApplicationGatewayPathRule{
 				Etag: to.StringPtr("*"),
 				Name: to.StringPtr(generatePathRuleName(ingress.Namespace, ingress.Name, strconv.Itoa(pathIdx))),
 				ApplicationGatewayPathRulePropertiesFormat: &n.ApplicationGatewayPathRulePropertiesFormat{
@@ -229,8 +226,7 @@ func (c *appGwConfigBuilder) pathMaps(ingress *v1beta1.Ingress, cbCtx *ConfigBui
 					BackendAddressPool:  &backendPoolSubResource,
 					BackendHTTPSettings: &backendHTTPSettingsSubResource,
 				},
-			}
-			pathRules = append(pathRules, pathRule)
+			})
 		}
 
 		urlPathMap.PathRules = &pathRules

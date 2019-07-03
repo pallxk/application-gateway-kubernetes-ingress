@@ -41,11 +41,6 @@ func (c *appGwConfigBuilder) getFrontendPorts(cbCtx *ConfigBuilderContext) *[]n.
 			},
 		})
 	}
-
-	if cbCtx.EnvVariables.EnableBrownfieldDeployment == "true" {
-		// TODO(draychev): implement
-	}
-
 	sort.Sort(sorter.ByFrontendPortName(frontendPorts))
 	return &frontendPorts
 }

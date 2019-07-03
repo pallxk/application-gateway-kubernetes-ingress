@@ -98,19 +98,62 @@ var _ = Describe("test TargetBlacklist/TargetWhitelist health probes", func() {
 		}
 
 		targetList := []Target{
-			{Hostname: tests.Host,
-				Port: 443,
-				Path: to.StringPtr("/foo"),
+			{
+				Hostname: tests.Host,
+				Port:     443,
+				Path:     to.StringPtr("/foo"),
 			},
-			{Hostname: tests.Host,
-				Port: 443,
-				Path: to.StringPtr("/bar"),
+			{
+				Hostname: tests.Host,
+				Port:     443,
+				Path:     to.StringPtr("/bar"),
 			},
 		}
 
 		It("Should be able to find a new Target in an existing list of Targets", func() {
 			Expect(t1.IsIn(&targetList)).To(BeTrue())
 			Expect(t2.IsIn(&targetList)).To(BeFalse())
+		})
+	})
+
+	Context("Test IsIn with Target without a Port", func() {
+		t1 := Target{
+			Hostname: tests.Host,
+			Path:     to.StringPtr("/bar"),
+		}
+
+		t2 := Target{
+			Hostname: tests.Host,
+			Path:     to.StringPtr("/xyz"),
+		}
+
+		t3 := Target{
+			Hostname: tests.Host,
+			Port:     8080,
+			Path:     to.StringPtr("/fox"),
+		}
+
+		targetList := []Target{
+			{
+				Hostname: tests.Host,
+				Path:     to.StringPtr("/fox"),
+			},
+			{
+				Hostname: tests.Host,
+				Port:     443,
+				Path:     to.StringPtr("/foo"),
+			},
+			{
+				Hostname: tests.Host,
+				Port:     443,
+				Path:     to.StringPtr("/bar"),
+			},
+		}
+
+		It("Should be able to find a new Target in an existing list of Targets", func() {
+			Expect(t1.IsIn(&targetList)).To(BeTrue())
+			Expect(t2.IsIn(&targetList)).To(BeFalse())
+			Expect(t3.IsIn(&targetList)).To(BeTrue())
 		})
 	})
 })

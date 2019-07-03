@@ -36,7 +36,10 @@ type Target struct {
 func (t Target) IsIn(targetList *[]Target) bool {
 	for _, otherTarget := range *targetList {
 		hostIsSame := strings.ToLower(t.Hostname) == strings.ToLower(otherTarget.Hostname)
-		portIsSame := t.Port == otherTarget.Port
+
+		// If one of the ports is not defined (0) - ignore port comparison
+		portIsSame := t.Port == otherTarget.Port || t.Port == 0 || otherTarget.Port == 0
+
 		pathA, pathB := "", ""
 		if t.Path != nil {
 			pathA = *t.Path

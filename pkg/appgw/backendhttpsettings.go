@@ -31,11 +31,6 @@ func (c *appGwConfigBuilder) BackendHTTPSettingsCollection(cbCtx *ConfigBuilderC
 	if httpSettings != nil {
 		sort.Sort(sorter.BySettingsName(*httpSettings))
 	}
-
-	if cbCtx.EnvVariables.EnableBrownfieldDeployment == "true" {
-		// TODO(draychev): implement
-	}
-
 	c.appGw.BackendHTTPSettingsCollection = httpSettings
 	return err
 }

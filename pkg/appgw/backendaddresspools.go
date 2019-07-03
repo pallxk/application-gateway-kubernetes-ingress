@@ -60,7 +60,7 @@ func (c appGwConfigBuilder) getPools(cbCtx *ConfigBuilderContext) []n.Applicatio
 		existingUnmanaged := brownfield.PruneManagedPools(allExisting, cbCtx.ManagedTargets, cbCtx.ProhibitedTargets, brownfieldCtx)
 
 		glog.V(3).Info("Subset of pools from Ingress; AGIC will manage:", getPoolNames(allPools))
-		glog.V(3).Info("Pools from App Gateway; AGIC will not mutate:", getPoolNames(existingUnmanaged))
+		glog.V(3).Info("Existing pools from App Gateway; AGIC will not mutate:", getPoolNames(existingUnmanaged))
 
 		allPools = brownfield.MergePools(existingUnmanaged, allPools)
 	}

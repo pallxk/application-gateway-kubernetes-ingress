@@ -42,17 +42,15 @@ func (c AppGwIngressController) Process(event events.Event) error {
 	if envVars.EnableBrownfieldDeployment == "true" {
 		for idx, ingress := range ingressList {
 			glog.V(5).Infof("Original Ingress[%d] Rules: %+v", idx, ingress.Spec.Rules)
-			brownfield.PruneUnmanagedIngress(ingress, blacklist, whitelist)
+			brownfield.PruneIngressRules(ingress, blacklist, whitelist)
 			glog.V(5).Infof("Sanitized Ingress[%d] Rules: %+v", idx, ingress.Spec.Rules)
 		}
 	}
 	cbCtx := &appgw.ConfigBuilderContext{
-		ServiceList: c.k8sContext.ListServices(),
-		IngressList: ingressList,
-
-		ManagedTargets:    c.k8sContext.ListAzureIngressManagedTargets(),
-		ProhibitedTargets: c.k8sContext.ListAzureProhibitedTargets(),
-
+		ServiceList:          c.k8sContext.ListServices(),
+		IngressList:          ingressList,
+		ManagedTargets:       c.k8sContext.ListAzureIngressManagedTargets(),
+		ProhibitedTargets:    c.k8sContext.ListAzureProhibitedTargets(),
 		IstioGateways:        c.k8sContext.ListIstioGateways(),
 		IstioVirtualServices: c.k8sContext.ListIstioVirtualServices(),
 		EnvVariables:         envVars,
@@ -128,5 +126,6 @@ func (c AppGwIngressController) Process(event events.Event) error {
 
 	glog.V(3).Info("cache: Updated with latest applied config.")
 	c.updateCache(&appGw)
+
 	return nil
 }

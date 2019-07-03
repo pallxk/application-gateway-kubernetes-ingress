@@ -5,8 +5,8 @@ import (
 	"k8s.io/api/extensions/v1beta1"
 )
 
-// PruneUnmanagedIngress mutates the ingress object to prune prohibited targets and leaves ones AGIC will manage.
-func PruneUnmanagedIngress(ing *v1beta1.Ingress, blacklist TargetBlacklist, whitelist TargetWhitelist) {
+// PruneIngressRules mutates the ingress struct to remove targets, which AGIC should not create configuration for.
+func PruneIngressRules(ing *v1beta1.Ingress, blacklist TargetBlacklist, whitelist TargetWhitelist) {
 	var rules []v1beta1.IngressRule
 
 	for _, rule := range ing.Spec.Rules {
@@ -14,14 +14,12 @@ func PruneUnmanagedIngress(ing *v1beta1.Ingress, blacklist TargetBlacklist, whit
 			continue
 		}
 
-		target := Target{
+		target80 := Target{
 			Hostname: rule.Host,
-			Port:     443, // TODO(delyan) !!!!!
-			Path:     nil,
 		}
 
 		if rule.HTTP.Paths == nil {
-			if shouldKeep(target, blacklist, whitelist) {
+			if shouldKeep(target80, blacklist, whitelist) {
 				rules = append(rules, rule)
 			}
 			continue // to next rule
@@ -36,8 +34,8 @@ func PruneUnmanagedIngress(ing *v1beta1.Ingress, blacklist TargetBlacklist, whit
 			},
 		}
 		for _, path := range rule.HTTP.Paths {
-			target.Path = &path.Path
-			if shouldKeep(target, blacklist, whitelist) {
+			target80.Path = &path.Path
+			if shouldKeep(target80, blacklist, whitelist) {
 				newRule.HTTP.Paths = append(newRule.HTTP.Paths, path)
 			}
 		}
