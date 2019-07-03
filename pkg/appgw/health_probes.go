@@ -26,6 +26,9 @@ func (c *appGwConfigBuilder) HealthProbesCollection(cbCtx *ConfigBuilderContext)
 	for _, probe := range healthProbeCollection {
 		probes = append(probes, probe)
 	}
+	if cbCtx.EnvVariables.EnableBrownfieldDeployment == "true" {
+		// TODO(draychev): implement
+	}
 	sort.Sort(sorter.ByHealthProbeName(probes))
 	c.appGw.Probes = &probes
 	return nil

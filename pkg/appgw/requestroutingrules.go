@@ -7,13 +7,15 @@ package appgw
 
 import (
 	"fmt"
-	"github.com/Azure/application-gateway-kubernetes-ingress/pkg/annotations"
-	"github.com/Azure/application-gateway-kubernetes-ingress/pkg/sorter"
+	"sort"
+
 	n "github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-12-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/golang/glog"
 	"k8s.io/api/extensions/v1beta1"
-	"sort"
+
+	"github.com/Azure/application-gateway-kubernetes-ingress/pkg/annotations"
+	"github.com/Azure/application-gateway-kubernetes-ingress/pkg/sorter"
 )
 
 func (c *appGwConfigBuilder) RequestRoutingRules(cbCtx *ConfigBuilderContext) error {
@@ -22,9 +24,12 @@ func (c *appGwConfigBuilder) RequestRoutingRules(cbCtx *ConfigBuilderContext) er
 	sort.Sort(sorter.ByRequestRoutingRuleName(requestRoutingRules))
 	c.appGw.RequestRoutingRules = &requestRoutingRules
 
+	if cbCtx.EnvVariables.EnableBrownfieldDeployment == "true" {
+		// TODO(draychev): implement
+	}
+
 	sort.Sort(sorter.ByPathMap(pathMaps))
 	c.appGw.URLPathMaps = &pathMaps
-
 	return nil
 }
 

@@ -32,6 +32,11 @@ func (c *appGwConfigBuilder) getRedirectConfigurations(cbCtx *ConfigBuilderConte
 			glog.V(3).Infof("Created redirection configuration %s; not yet linked to a routing rule", listenerConfig.SslRedirectConfigurationName)
 		}
 	}
+
+	if cbCtx.EnvVariables.EnableBrownfieldDeployment == "true" {
+		// TODO(draychev): implement
+	}
+
 	sort.Sort(sorter.ByRedirectName(redirectConfigs))
 	return &redirectConfigs
 }

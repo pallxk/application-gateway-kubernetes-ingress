@@ -33,6 +33,11 @@ func (c *appGwConfigBuilder) getSslCertificates(cbCtx *ConfigBuilderContext) *[]
 	for secretID, cert := range secretIDCertificateMap {
 		sslCertificates = append(sslCertificates, newCert(secretID, cert))
 	}
+
+	if cbCtx.EnvVariables.EnableBrownfieldDeployment == "true" {
+		// TODO(draychev): implement
+	}
+
 	sort.Sort(sorter.ByCertificateName(sslCertificates))
 	return &sslCertificates
 }

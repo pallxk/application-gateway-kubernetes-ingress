@@ -35,6 +35,10 @@ func (c *appGwConfigBuilder) getListeners(cbCtx *ConfigBuilderContext) (*[]n.App
 		legacyMap[listenerID] = &listener
 	}
 
+	if cbCtx.EnvVariables.EnableBrownfieldDeployment == "true" {
+		// TODO(draychev): implement
+	}
+
 	// TODO(draychev): The second map we return is for compatibility w/ RequestRoutingRules and should be removed ASAP
 	sort.Sort(sorter.ByListenerName(listeners))
 	return &listeners, legacyMap
