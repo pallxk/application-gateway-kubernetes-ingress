@@ -5,7 +5,6 @@
 
 package controller
 
-
 import (
 	"context"
 	"errors"
@@ -54,9 +53,9 @@ func (c AppGwIngressController) Process(event events.Event) error {
 		ManagedTargets:    c.k8sContext.ListAzureIngressManagedTargets(),
 		ProhibitedTargets: c.k8sContext.ListAzureProhibitedTargets(),
 
-		IstioGateways: c.k8sContext.ListIstioGateways(),
+		IstioGateways:        c.k8sContext.ListIstioGateways(),
 		IstioVirtualServices: c.k8sContext.ListIstioVirtualServices(),
-		EnvVariables:  envVars,
+		EnvVariables:         envVars,
 	}
 
 	if cbCtx.EnvVariables.EnableIstioIntegration == "true" {

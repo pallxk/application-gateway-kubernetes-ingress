@@ -6,8 +6,8 @@
 package appgw
 
 import (
-	"fmt"
 	"sort"
+	"strconv"
 
 	n "github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-12-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
@@ -38,7 +38,7 @@ func (c *appGwConfigBuilder) getURLPathMaps(cbCtx *ConfigBuilderContext) map[lis
 	urlPathMaps := make(map[listenerIdentifier]*n.ApplicationGatewayURLPathMap)
 	backendPools := c.newBackendPoolMap(cbCtx)
 	_, backendHTTPSettingsMap, _, _ := c.getBackendsAndSettingsMap(cbCtx)
-	for ingressIdx, ingress := range cbCtx.IngressList {
+	for _, ingress := range cbCtx.IngressList {
 		defaultAddressPoolID := c.appGwIdentifier.addressPoolID(defaultBackendAddressPoolName)
 		defaultHTTPSettingsID := c.appGwIdentifier.httpSettingsID(defaultBackendHTTPSettingsName)
 
@@ -95,13 +95,13 @@ func (c *appGwConfigBuilder) getURLPathMaps(cbCtx *ConfigBuilderContext) map[lis
 					// only add wildcard rules when host is specified
 					urlPathMaps[listenerHTTPID] = c.pathMaps(ingress, cbCtx, wildcardRule,
 						listenerHTTPID, urlPathMaps[listenerHTTPID],
-						defaultAddressPoolID, defaultHTTPSettingsID, ingressIdx)
+						defaultAddressPoolID, defaultHTTPSettingsID)
 				}
 
 				// need to eliminate non-unique paths
 				urlPathMaps[listenerHTTPID] = c.pathMaps(ingress, cbCtx, rule,
 					listenerHTTPID, urlPathMaps[listenerHTTPID],
-					defaultAddressPoolID, defaultHTTPSettingsID, ingressIdx)
+					defaultAddressPoolID, defaultHTTPSettingsID)
 
 				// If ingress is annotated with "ssl-redirect" and we have TLS - setup redirection configuration.
 				if sslRedirect, _ := annotations.IsSslRedirect(ingress); sslRedirect && httpsAvailable {
@@ -114,13 +114,13 @@ func (c *appGwConfigBuilder) getURLPathMaps(cbCtx *ConfigBuilderContext) map[lis
 					// only add wildcard rules when host is specified
 					urlPathMaps[listenerHTTPSID] = c.pathMaps(ingress, cbCtx, wildcardRule,
 						listenerHTTPSID, urlPathMaps[listenerHTTPSID],
-						defaultAddressPoolID, defaultHTTPSettingsID, ingressIdx)
+						defaultAddressPoolID, defaultHTTPSettingsID)
 				}
 
 				// need to eliminate non-unique paths
 				urlPathMaps[listenerHTTPSID] = c.pathMaps(ingress, cbCtx, rule,
 					listenerHTTPSID, urlPathMaps[listenerHTTPSID],
-					defaultAddressPoolID, defaultHTTPSettingsID, ingressIdx)
+					defaultAddressPoolID, defaultHTTPSettingsID)
 			}
 		}
 	}
@@ -180,7 +180,7 @@ func (c *appGwConfigBuilder) getRules(cbCtx *ConfigBuilderContext) ([]n.Applicat
 
 func (c *appGwConfigBuilder) pathMaps(ingress *v1beta1.Ingress, cbCtx *ConfigBuilderContext, rule *v1beta1.IngressRule,
 	listenerID listenerIdentifier, urlPathMap *n.ApplicationGatewayURLPathMap,
-	defaultAddressPoolID string, defaultHTTPSettingsID string, ingressIdx int) *n.ApplicationGatewayURLPathMap {
+	defaultAddressPoolID string, defaultHTTPSettingsID string) *n.ApplicationGatewayURLPathMap {
 	if urlPathMap == nil {
 		urlPathMap = &n.ApplicationGatewayURLPathMap{
 			Etag: to.StringPtr("*"),
@@ -221,10 +221,9 @@ func (c *appGwConfigBuilder) pathMaps(ingress *v1beta1.Ingress, cbCtx *ConfigBui
 			}
 		} else {
 			// associate backend with a path-based rule
-			suffix := fmt.Sprintf("%d-%d", ingressIdx, pathIdx)
 			pathRule := n.ApplicationGatewayPathRule{
 				Etag: to.StringPtr("*"),
-				Name: to.StringPtr(generatePathRuleName(ingress.Namespace, ingress.Name, suffix)),
+				Name: to.StringPtr(generatePathRuleName(ingress.Namespace, ingress.Name, strconv.Itoa(pathIdx))),
 				ApplicationGatewayPathRulePropertiesFormat: &n.ApplicationGatewayPathRulePropertiesFormat{
 					Paths:               &[]string{path.Path},
 					BackendAddressPool:  &backendPoolSubResource,
