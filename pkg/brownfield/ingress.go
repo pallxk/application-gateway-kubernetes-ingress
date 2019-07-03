@@ -3,10 +3,16 @@ package brownfield
 import (
 	"github.com/golang/glog"
 	"k8s.io/api/extensions/v1beta1"
+
+	mtv1 "github.com/Azure/application-gateway-kubernetes-ingress/pkg/apis/azureingressmanagedtarget/v1"
+	ptv1 "github.com/Azure/application-gateway-kubernetes-ingress/pkg/apis/azureingressprohibitedtarget/v1"
 )
 
 // PruneIngressRules mutates the ingress struct to remove targets, which AGIC should not create configuration for.
-func PruneIngressRules(ing *v1beta1.Ingress, blacklist TargetBlacklist, whitelist TargetWhitelist) {
+func PruneIngressRules(ing *v1beta1.Ingress, prohibitedTargets []*ptv1.AzureIngressProhibitedTarget, managedTargets []*mtv1.AzureIngressManagedTarget) {
+	blacklist := GetProhibitedTargetList(prohibitedTargets)
+	whitelist := GetManagedTargetList(managedTargets)
+
 	var rules []v1beta1.IngressRule
 
 	for _, rule := range ing.Spec.Rules {

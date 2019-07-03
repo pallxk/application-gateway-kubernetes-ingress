@@ -9,7 +9,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/Azure/application-gateway-kubernetes-ingress/pkg/brownfield"
 	"strings"
 	"time"
 
@@ -17,6 +16,7 @@ import (
 	"github.com/golang/glog"
 
 	"github.com/Azure/application-gateway-kubernetes-ingress/pkg/appgw"
+	"github.com/Azure/application-gateway-kubernetes-ingress/pkg/brownfield"
 	"github.com/Azure/application-gateway-kubernetes-ingress/pkg/environment"
 	"github.com/Azure/application-gateway-kubernetes-ingress/pkg/events"
 )
@@ -35,14 +35,11 @@ func (c AppGwIngressController) Process(event events.Event) error {
 
 	envVars := environment.GetEnv()
 
-	blacklist := brownfield.GetProhibitedTargetList(c.k8sContext.ListAzureProhibitedTargets())
-	whitelist := brownfield.GetManagedTargetList(c.k8sContext.ListAzureIngressManagedTargets())
-
 	ingressList := c.k8sContext.ListHTTPIngresses()
 	if envVars.EnableBrownfieldDeployment == "true" {
 		for idx, ingress := range ingressList {
 			glog.V(5).Infof("Original Ingress[%d] Rules: %+v", idx, ingress.Spec.Rules)
-			brownfield.PruneIngressRules(ingress, blacklist, whitelist)
+			brownfield.PruneIngressRules(ingress, c.k8sContext.ListAzureProhibitedTargets(), c.k8sContext.ListAzureIngressManagedTargets())
 			glog.V(5).Infof("Sanitized Ingress[%d] Rules: %+v", idx, ingress.Spec.Rules)
 		}
 	}
