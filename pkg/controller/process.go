@@ -16,6 +16,7 @@ import (
 	"github.com/golang/glog"
 
 	"github.com/Azure/application-gateway-kubernetes-ingress/pkg/appgw"
+	"github.com/Azure/application-gateway-kubernetes-ingress/pkg/brownfield"
 	"github.com/Azure/application-gateway-kubernetes-ingress/pkg/environment"
 	"github.com/Azure/application-gateway-kubernetes-ingress/pkg/events"
 )
@@ -32,15 +33,24 @@ func (c AppGwIngressController) Process(event events.Event) error {
 		return errors.New("unable to get specified ApplicationGateway")
 	}
 
+	envVars := environment.GetEnv()
+
+	ingressList := c.k8sContext.ListHTTPIngresses()
+	if envVars.EnableBrownfieldDeployment == "true" {
+		for idx, ingress := range ingressList {
+			glog.V(5).Infof("Original Ingress[%d] Rules: %+v", idx, ingress.Spec.Rules)
+			brownfield.PruneIngressRules(ingress, c.k8sContext.ListAzureProhibitedTargets(), c.k8sContext.ListAzureIngressManagedTargets())
+			glog.V(5).Infof("Sanitized Ingress[%d] Rules: %+v", idx, ingress.Spec.Rules)
+		}
+	}
 	cbCtx := &appgw.ConfigBuilderContext{
-		// Get all Services
 		ServiceList:          c.k8sContext.ListServices(),
-		IngressList:          c.k8sContext.ListHTTPIngresses(),
+		IngressList:          ingressList,
 		ManagedTargets:       c.k8sContext.ListAzureIngressManagedTargets(),
 		ProhibitedTargets:    c.k8sContext.ListAzureProhibitedTargets(),
 		IstioGateways:        c.k8sContext.ListIstioGateways(),
 		IstioVirtualServices: c.k8sContext.ListIstioVirtualServices(),
-		EnvVariables:         environment.GetEnv(),
+		EnvVariables:         envVars,
 	}
 
 	if cbCtx.EnvVariables.EnableIstioIntegration == "true" {
